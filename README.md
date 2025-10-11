@@ -26,17 +26,24 @@ Layr helps you plan before you code by generating structured, actionable project
 
 For AI-powered plans, configure your Gemini API key:
 
-**Option A: VS Code Settings**
-1. Open VS Code Settings (`Ctrl+,`)
-2. Search for "layr"
-3. Enter your Gemini API key in the "Gemini Api Key" field
-
-**Option B: Environment Variable**
+**Option A: VS Code Settings (Recommended)**
 1. Get your API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
-2. Add to your `.env` file:
+2. Open VS Code Settings (`Ctrl+,`)
+3. Search for "layr"
+4. Enter your Gemini API key in the "Gemini Api Key" field
+
+**Option B: VS Code Settings File**
+1. Copy `.vscode/settings.example.json` to `.vscode/settings.json`
+2. Replace `YOUR_GEMINI_API_KEY_HERE` with your actual API key
+3. The settings.json file is automatically ignored by git for security
+
+**Option C: Environment Variable**
+1. Add to your `.env` file:
    ```
    GEMINI_API_KEY=your_api_key_here
    ```
+
+⚠️ **Security Note**: Never commit API keys to version control. The extension is configured to keep your API key secure.
 
 ### 3. Usage
 

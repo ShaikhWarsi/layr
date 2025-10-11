@@ -10,6 +10,7 @@ node_modules/
 
 # VS Code
 .vscode-test/
+.vscode/settings.json
 
 # Logs
 *.log
