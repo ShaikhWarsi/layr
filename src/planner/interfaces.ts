@@ -1,8 +1,45 @@
 /**
+ * Supported AI providers
+ */
+export type AIProviderType = 'gemini' | 'openai' | 'claude';
+
+/**
  * Configuration interface for the Layr extension
  */
 export interface LayrConfig {
+  // Legacy support
   geminiApiKey?: string;
+  
+  // New multi-provider configuration
+  aiProvider?: AIProviderType;
+  gemini?: GeminiConfig;
+  openai?: OpenAIConfig;
+  claude?: ClaudeConfig;
+}
+
+/**
+ * Gemini AI configuration
+ */
+export interface GeminiConfig {
+  apiKey: string;
+  model?: 'gemini-pro' | 'gemini-pro-vision';
+}
+
+/**
+ * OpenAI configuration
+ */
+export interface OpenAIConfig {
+  apiKey: string;
+  model?: 'gpt-4' | 'gpt-4-turbo' | 'gpt-3.5-turbo';
+  organization?: string;
+}
+
+/**
+ * Claude AI configuration
+ */
+export interface ClaudeConfig {
+  apiKey: string;
+  model?: 'claude-3-opus' | 'claude-3-sonnet' | 'claude-3-haiku';
 }
 
 /**
@@ -42,11 +79,32 @@ export interface PlanStep {
 }
 
 /**
+ * Interface for AI providers
+ */
+export interface AIProvider {
+  readonly name: string;
+  readonly type: AIProviderType;
+  
+  generatePlan(prompt: string, options?: any): Promise<string>;
+  validateApiKey(apiKey: string): Promise<boolean>;
+  getSupportedModels(): string[];
+  isAvailable(): Promise<boolean>;
+}
+
+/**
  * Interface for plan generators (AI or rule-based)
  */
 export interface PlanGenerator {
   generatePlan(prompt: string): Promise<ProjectPlan>;
   isAvailable(): Promise<boolean>;
+}
+
+/**
+ * AI provider factory interface
+ */
+export interface AIProviderFactory {
+  createProvider(type: AIProviderType, config: any): AIProvider;
+  getSupportedProviders(): AIProviderType[];
 }
 
 /**
@@ -72,9 +130,17 @@ export class PlanGenerationError extends Error {
 }
 
 export class APIKeyMissingError extends PlanGenerationError {
-  constructor() {
-    super('Gemini API key is missing. Please configure it in settings or .env file.');
+  constructor(provider?: AIProviderType) {
+    const providerName = provider ? provider.charAt(0).toUpperCase() + provider.slice(1) : 'AI';
+    super(`${providerName} API key is missing. Please configure it in settings or .env file.`);
     this.name = 'APIKeyMissingError';
+  }
+}
+
+export class UnsupportedProviderError extends PlanGenerationError {
+  constructor(provider: string) {
+    super(`Unsupported AI provider: ${provider}. Supported providers: gemini, openai, claude.`);
+    this.name = 'UnsupportedProviderError';
   }
 }
 

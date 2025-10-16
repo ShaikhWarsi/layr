@@ -32,7 +32,7 @@ export class GeminiPlanGenerator implements PlanGenerator {
 
     try {
       const model = this.genAI.getGenerativeModel({ 
-            model: 'gemini-2.5-flash',
+            model: 'gemini-pro',
             generationConfig: {
                 temperature: 0.7,
                 topK: 40,
@@ -72,7 +72,7 @@ export class GeminiPlanGenerator implements PlanGenerator {
 
     try {
       const model = this.genAI.getGenerativeModel({ 
-            model: 'gemini-2.5-flash',
+            model: 'gemini-pro',
             generationConfig: {
                 temperature: 0.7,
                 topK: 40,
