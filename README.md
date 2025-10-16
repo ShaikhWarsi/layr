@@ -39,28 +39,48 @@ Layr is a VS Code extension that generates comprehensive, actionable project pla
 
 ## Configuration
 
-### AI-Powered Plans (Optional)
+### AI-Powered Plans 
 
-To enable AI-generated plans, configure your Gemini API key using one of these methods:
+Layr now supports multiple AI providers! Choose from Gemini, OpenAI, or Claude to generate your project plans.
 
-**Method 1: VS Code Settings UI (Recommended)**
+**Step 1: Choose Your AI Provider**
+1. Open VS Code Settings (Ctrl+,)
+2. Search for "layr"
+3. Set "AI Provider" to your preferred option:
+   - `gemini` (default) - Google's Gemini AI
+   - `openai` - OpenAI's GPT models
+   - `claude` - Anthropic's Claude models
+
+**Step 2: Configure API Key**
+
+**For Gemini:**
 1. Get your API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
-2. Open VS Code Settings (Ctrl+,)
-3. Search for "layr"
-4. Enter your API key in the "Gemini Api Key" field
+2. Enter your API key in the "Gemini Api Key" field
 
-**Method 2: Settings File**
-1. Copy `.vscode/settings.example.json` to `.vscode/settings.json`
-2. Replace `YOUR_GEMINI_API_KEY_HERE` with your actual API key
-3. The settings.json file is automatically ignored by git
+**For OpenAI:**
+1. Get your API key from [OpenAI Platform](https://platform.openai.com/api-keys)
+2. Enter your API key in the "OpenAI Api Key" field
+3. Optionally set your organization ID in "OpenAI Organization"
 
-**Method 3: Environment Variable**
-Add to your `.env` file:
+**For Claude:**
+1. Get your API key from [Anthropic Console](https://console.anthropic.com/)
+2. Enter your API key in the "Claude Api Key" field
+
+**Step 3: Choose Model (Optional)**
+- Gemini Model: `gemini-pro` (default) or `gemini-pro-vision`
+- OpenAI Model: `gpt-4` (default), `gpt-4-turbo`, or `gpt-3.5-turbo`
+- Claude Model: `claude-3-sonnet` (default), `claude-3-opus`, or `claude-3-haiku`
+
+**Alternative: Environment Variables**
+Add to your `.env` file or system environment:
+```bash
+# Choose one or more based on your preferred provider
+GEMINI_API_KEY=your_gemini_api_key_here
+OPENAI_API_KEY=your_openai_api_key_here
+CLAUDE_API_KEY=your_claude_api_key_here
 ```
-GEMINI_API_KEY=your_api_key_here
-```
 
-**Security Note** : API keys are stored locally and never transmitted except to Google's Gemini API. The extension is configured to prevent accidental commits of sensitive information.
+**Security Note** : API keys are stored locally and never transmitted except to the respective AI provider's API. The extension is configured to prevent accidental commits of sensitive information.
 
 ## Usage Guide
 

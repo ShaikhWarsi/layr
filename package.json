@@ -49,11 +49,74 @@
     "configuration": {
       "title": "Layr",
       "properties": {
-        "layr.geminiApiKey": {
+        "layr.aiProvider": {
+          "type": "string",
+          "enum": [
+            "gemini",
+            "openai",
+            "claude"
+          ],
+          "default": "gemini",
+          "description": "Select your AI provider",
+          "enumDescriptions": [
+            "Google Gemini AI (Fast & Free)",
+            "OpenAI GPT (Most Popular)",
+            "Anthropic Claude (Advanced Reasoning)"
+          ],
+          "scope": "application",
+          "order": 1
+        },
+        "layr.apiKey": {
           "type": "string",
           "default": "",
-          "description": "Your Gemini AI API key for generating intelligent plans",
-          "scope": "application"
+          "description": "API Key for your selected AI provider",
+          "scope": "application",
+          "order": 2
+        },
+        "layr.geminiModel": {
+          "type": "string",
+          "enum": [
+            "gemini-2.5-flash",
+            "gemini-2.5-pro",
+            "gemini-1.5-pro",
+            "gemini-1.5-flash",
+            "gemini-pro"
+          ],
+          "default": "gemini-2.5-flash",
+          "description": "Gemini model to use",
+          "scope": "application",
+          "order": 3
+        },
+        "layr.openaiModel": {
+          "type": "string",
+          "enum": [
+            "gpt-4",
+            "gpt-4-turbo",
+            "gpt-3.5-turbo"
+          ],
+          "default": "gpt-4",
+          "description": "OpenAI model to use",
+          "scope": "application",
+          "order": 4
+        },
+        "layr.claudeModel": {
+          "type": "string",
+          "enum": [
+            "claude-3-sonnet",
+            "claude-3-opus",
+            "claude-3-haiku"
+          ],
+          "default": "claude-3-sonnet",
+          "description": "Claude model to use",
+          "scope": "application",
+          "order": 5
+        },
+        "layr.openaiOrganization": {
+          "type": "string",
+          "default": "",
+          "description": "OpenAI Organization ID (optional, only for OpenAI)",
+          "scope": "application",
+          "order": 6
         }
       }
     }
@@ -70,6 +133,8 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.2.1",
-    "dotenv": "^17.2.3"
+    "@types/node-fetch": "^2.6.13",
+    "dotenv": "^17.2.3",
+    "node-fetch": "^3.3.2"
   }
 }

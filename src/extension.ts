@@ -63,15 +63,31 @@ export function activate(context: vscode.ExtensionContext) {
   // Register debug command to test API key loading
   const debugCommand = vscode.commands.registerCommand('layr.debug', async () => {
     const config = vscode.workspace.getConfiguration('layr');
-    const settingsApiKey = config.get<string>('geminiApiKey') || '';
-    const envApiKey = process.env.GEMINI_API_KEY || '';
     
-    // Test AI generator availability
-    let aiGeneratorStatus = 'unknown';
+    // Get configuration
+    const selectedProvider = config.get<string>('aiProvider') || 'gemini';
+    const apiKey = config.get<string>('apiKey') || '';
+    
+    // Get API keys from configuration or environment variables (fallback)
+    const geminiApiKey = selectedProvider === 'gemini' ? apiKey : process.env.GEMINI_API_KEY || '';
+    const openaiApiKey = selectedProvider === 'openai' ? apiKey : process.env.OPENAI_API_KEY || '';
+    const claudeApiKey = selectedProvider === 'claude' ? apiKey : process.env.CLAUDE_API_KEY || '';
+    
+    // Get provider-specific model configurations
+    const geminiModel = config.get<string>('geminiModel') || 'gemini-2.5-flash';
+    const openaiModel = config.get<string>('openaiModel') || 'gpt-4';
+    const claudeModel = config.get<string>('claudeModel') || 'claude-3-sonnet';
+    
+    // Get the current model based on selected provider
+    const currentModel = selectedProvider === 'gemini' ? geminiModel : 
+                        selectedProvider === 'openai' ? openaiModel : claudeModel;
+    
+    // Test AI provider availability
+    let aiProviderStatus = 'unknown';
     let apiTestResult = 'not tested';
     try {
       const isAvailable = await planner.isAIAvailable();
-      aiGeneratorStatus = isAvailable ? 'available' : 'not available';
+      aiProviderStatus = isAvailable ? 'available' : 'not available';
       
       // Test the API key directly if available
       if (isAvailable) {
@@ -79,21 +95,39 @@ export function activate(context: vscode.ExtensionContext) {
         apiTestResult = testResult.success ? 'API key works!' : `API error: ${testResult.error}`;
       }
     } catch (error) {
-      aiGeneratorStatus = `error: ${error}`;
+      aiProviderStatus = `error: ${error}`;
     }
     
-    const message = `Debug Info:
-Settings API Key: ${settingsApiKey ? '***configured***' : 'not set'}
-Environment API Key: ${envApiKey ? '***configured***' : 'not set'}
-Final API Key: ${settingsApiKey || envApiKey ? '***configured***' : 'not set'}
-AI Generator Status: ${aiGeneratorStatus}
-API Test Result: ${apiTestResult}`;
+    const message = `Layr Debug Information
+
+Selected Provider: ${selectedProvider}
+API Key: ${apiKey ? '***configured***' : 'not set'}
+Current Model: ${currentModel}
+OpenAI Org: ${config.get<string>('openaiOrganization') || 'not set'}
+
+Provider Status:
+• Gemini: ${geminiApiKey ? 'configured' : 'not set'}
+• OpenAI: ${openaiApiKey ? 'configured' : 'not set'}
+• Claude: ${claudeApiKey ? 'configured' : 'not set'}
+
+AI Generator: ${aiProviderStatus}
+Test Result: ${apiTestResult}
+
+Raw Config:
+${JSON.stringify({
+      selectedProvider,
+      apiKey: apiKey ? '***configured***' : 'not set',
+      currentModel,
+      allModels: { geminiModel, openaiModel, claudeModel }
+    }, null, 2)}`;
     
     vscode.window.showInformationMessage(message);
-    console.log('Layr Debug:', { 
-      settingsApiKey: settingsApiKey ? '***configured***' : 'not set',
-      envApiKey: envApiKey ? '***configured***' : 'not set',
-      aiGeneratorStatus,
+    console.log('Layr Multi-Provider Debug:', { 
+      selectedProvider,
+      geminiApiKey: geminiApiKey ? '***configured***' : 'not set',
+      openaiApiKey: openaiApiKey ? '***configured***' : 'not set',
+      claudeApiKey: claudeApiKey ? '***configured***' : 'not set',
+      aiProviderStatus,
       apiTestResult
     });
   });
@@ -194,11 +228,15 @@ API Test Result: ${apiTestResult}`;
     }
   });
 
-  // Register configuration change listener to refresh planner config
-  const configChangeListener = vscode.workspace.onDidChangeConfiguration((event) => {
-    if (event.affectsConfiguration('layr.geminiApiKey')) {
-      planner.refreshConfig();
-      vscode.window.showInformationMessage('Layr configuration updated! 🔄');
+  // Listen for configuration changes
+  const configChangeListener = vscode.workspace.onDidChangeConfiguration(event => {
+    if (event.affectsConfiguration('layr.aiProvider') ||
+        event.affectsConfiguration('layr.apiKey') ||
+        event.affectsConfiguration('layr.geminiModel') ||
+        event.affectsConfiguration('layr.openaiModel') ||
+        event.affectsConfiguration('layr.claudeModel') ||
+        event.affectsConfiguration('layr.openaiOrganization')) {
+      vscode.window.showInformationMessage('Layr: Configuration updated! Changes will take effect on next plan generation.');
     }
   });
 
@@ -222,15 +260,15 @@ API Test Result: ${apiTestResult}`;
  */
 async function showWelcomeMessage(context: vscode.ExtensionContext) {
   const action = await vscode.window.showInformationMessage(
-    'Welcome to Layr! 🎯 To get started with AI-powered planning, configure your Gemini API key.',
-    'Configure API Key',
+    'Welcome to Layr! To get started with AI-powered planning, configure your AI provider and API key.',
+    'Configure Settings',
     'Use Offline Mode',
     'Learn More'
   );
 
   switch (action) {
-    case 'Configure API Key':
-      await vscode.commands.executeCommand('workbench.action.openSettings', 'layr.geminiApiKey');
+    case 'Configure Settings':
+      await vscode.commands.executeCommand('workbench.action.openSettings', 'layr.aiProvider');
       break;
     case 'Use Offline Mode':
       vscode.window.showInformationMessage(
