@@ -16,9 +16,8 @@ export class GroqProvider implements AIProvider {
   constructor(config: { apiKey?: string; model?: string; baseURL?: string }) {
     this.model = config.model || 'llama-3.3-70b-versatile';
     
-    // IMPORTANT: After deploying to Vercel, replace this URL with your Vercel deployment URL
-    // Example: 'https://your-app-name.vercel.app/api/chat'
-    this.proxyURL = process.env.LAYR_PROXY_URL || 'YOUR_VERCEL_URL_HERE';
+    // Secure proxy endpoint - keeps API key safe on server
+    this.proxyURL = process.env.LAYR_PROXY_URL || 'https://layr-api.vercel.app/api/chat';
     
     // Use proxy if URL is configured, otherwise this will fail gracefully
     this.useProxy = this.proxyURL !== 'YOUR_VERCEL_URL_HERE';
