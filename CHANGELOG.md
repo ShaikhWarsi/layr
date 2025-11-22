@@ -2,10 +2,30 @@
 
 All notable changes to the "Layr" extension will be documented in this file.
 
+## [2.0.3] - 2025-11-22
+
+### Added
+- Multi-IDE support for Execute Plan feature
+- Automatic detection and integration with Cursor AI
+- Automatic detection and integration with Windsurf AI
+- Automatic detection and integration with Antigravity AI
+- Generic fallback for other IDE AI assistants
+- Enhanced execution instructions for multiple IDEs
+
+### Changed
+- Execute Plan now works across VS Code, Cursor, Windsurf, Antigravity, and other compatible IDEs
+- Improved AI assistant detection with multiple fallback strategies
+- Updated documentation to reflect multi-IDE support
+
+### Fixed
+- Execute Plan now functions properly in Cursor, Windsurf, and Antigravity
+- Better error handling when AI chat extensions are not available
+
 ## [2.0.2] - 2025-11-22
 
 ### Added
 - Published to Open VSX Registry for broader IDE support
+- Now available on Cursor, Windsurf, VSCodium, Gitpod, Eclipse Theia, and other Open VSX compatible editors
 - Now available on Cursor, Antigravity, Windsurf, VSCodium, Gitpod, Eclipse Theia, and other Open VSX compatible editors
 - Added npm scripts for easier publishing workflow
 
