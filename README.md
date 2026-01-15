@@ -42,7 +42,20 @@ Layr comes **pre-configured with Groq AI** - just install and start planning imm
 1. Open VS Code
 2. Go to Extensions (Ctrl+Shift+X)
 3. Search for "Layr"
+
+![Search for Layr in VS Code Extensions](./assets/extensions-panel-search.png)
+
 4. Click Install
+
+![Layr installed confirmation](./assets/layr-installed-confirmation.png)
+
+#### VS Code Version Compatibility
+Layr requires **Visual Studio Code version 1.74 or later**.
+
+You can check your VS Code version via:
+- **Windows/Linux:** Help → About
+- **macOS:** Code → About Visual Studio Code
+
 
 ### From Open VSX Registry (for Cursor, Antigravity, Windsurf, VSCodium, etc.)
 1. Open your IDE
