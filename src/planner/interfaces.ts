@@ -121,22 +121,57 @@ export class PlanGenerationError extends Error {
 
 export class APIKeyMissingError extends PlanGenerationError {
   constructor(provider?: AIProviderType) {
-    const providerName = provider ? provider.charAt(0).toUpperCase() + provider.slice(1) : 'AI';
-    super(`${providerName} API key is missing. Please configure it in settings or .env file.`);
+    const message = `AI provider is not configured or unavailable.
+
+How to fix:
+1. Verify your configuration in VS Code Settings or .env file
+2. Check your internet connection
+3. Ensure you have the necessary API credentials
+4. Reload the window (Ctrl+R) to apply changes
+
+For detailed setup instructions:
+- Visit: https://github.com/manasdutta04/layr#setup
+- Check documentation: https://github.com/manasdutta04/layr`;
+    
+    super(message);
     this.name = 'APIKeyMissingError';
   }
 }
 
 export class UnsupportedProviderError extends PlanGenerationError {
   constructor(provider: string) {
-    super(`Unsupported AI provider: ${provider}. Supported providers: gemini, openai, claude, kimi, deepseek, grok, o3.`);
+    const message = `Unsupported AI provider: "${provider}".
+
+Supported providers: gemini, groq
+
+Both providers work seamlessly:
+- Gemini: Requires API key setup (https://ai.google.dev)
+- Groq: Works via secure proxy (zero setup needed)
+
+Setup guide: https://github.com/manasdutta04/layr#setup`;
+    
+    super(message);
     this.name = 'UnsupportedProviderError';
   }
 }
 
 export class AIServiceError extends PlanGenerationError {
   constructor(message: string, cause?: Error) {
-    super(`AI service error: ${message}`, cause);
+    const fullMessage = `AI service error: ${message}
+
+Troubleshooting steps:
+1. Check your internet connection
+2. Verify your configuration settings
+3. Ensure you have sufficient quota or credits
+4. Try again with a simpler project description
+5. Wait a few moments and retry
+
+If the issue persists:
+- Review your configuration: https://github.com/manasdutta04/layr#setup
+- Report the issue: https://github.com/manasdutta04/layr/issues
+- Check documentation for troubleshooting: https://github.com/manasdutta04/layr#troubleshooting`;
+    
+    super(fullMessage, cause);
     this.name = 'AIServiceError';
   }
 }

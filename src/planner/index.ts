@@ -43,7 +43,16 @@ export class Planner {
     
     // REQUIRE AI provider - no offline fallback allowed
     if (!this.aiProvider) {
-      const errorMsg = 'Failed to generate plan: AI API key is missing. Please configure it in settings or .env file.';
+      const errorMsg = `AI provider not initialized.
+
+Please configure your AI provider:
+1. Set up your configuration in VS Code Settings or .env file
+2. Reload VS Code (Ctrl+R) to apply changes
+3. Try creating a plan again
+
+For help with setup:
+- Documentation: https://github.com/manasdutta04/layr#setup
+- Troubleshooting: https://github.com/manasdutta04/layr#troubleshooting`;
       console.error('Planner.generatePlan:', errorMsg);
       vscode.window.showErrorMessage(errorMsg);
       throw new APIKeyMissingError();
@@ -53,7 +62,22 @@ export class Planner {
     console.log('Planner.generatePlan: AI provider available:', isAvailable);
     
     if (!isAvailable) {
-      const errorMsg = `ONLINE MODE REQUIRED: AI provider (${this.aiProvider.name}) not available. Please check your API key configuration.`;
+      const errorMsg = `AI provider is currently unavailable.
+
+Please verify:
+1. Your configuration is correct in VS Code Settings or .env file
+2. Your internet connection is working
+3. Your API credentials are valid
+
+Next steps:
+1. Check your configuration: https://github.com/manasdutta04/layr#setup
+2. Reload VS Code (Ctrl+R) to refresh
+3. Try again
+
+If the issue persists:
+- Visit: https://github.com/manasdutta04/layr/issues
+- Check troubleshooting: https://github.com/manasdutta04/layr#troubleshooting`;
+      
       console.error('Planner.generatePlan:', errorMsg);
       vscode.window.showErrorMessage(errorMsg);
       throw new APIKeyMissingError();
@@ -83,17 +107,28 @@ export class Planner {
     } catch (error) {
       console.error('Planner.generatePlan: AI plan generation failed:', error);
       
-      let errorMessage = 'ONLINE MODE REQUIRED: AI plan generation failed. ';
+      let errorMessage = '';
+      
       if (error instanceof APIKeyMissingError) {
-        errorMessage += `Please configure your ${this.aiProvider?.name || 'AI provider'} API key.`;
+        errorMessage = error.message;
       } else if (error instanceof AIServiceError) {
-        errorMessage += `AI service error: ${error.message}`;
+        errorMessage = error.message;
+      } else if (error instanceof Error) {
+        errorMessage = `Plan generation failed: ${error.message}
+
+Troubleshooting:
+1. Check your internet connection
+2. Verify API key configuration: https://github.com/manasdutta04/layr#setup
+3. Check ${this.aiProvider?.name || 'AI'} service status
+4. Try again with a simpler project description
+
+Need help? Visit: https://github.com/manasdutta04/layr/issues`;
       } else {
-        errorMessage += 'Unexpected error with AI service.';
+        errorMessage = `Unexpected error: ${String(error)}. Please try again or report at: https://github.com/manasdutta04/layr/issues`;
       }
       
       vscode.window.showErrorMessage(errorMessage);
-      throw error; // Re-throw the error instead of falling back to offline mode
+      throw error;
     }
   }
 
