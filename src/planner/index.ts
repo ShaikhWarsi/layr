@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
-import { ProjectPlan, FileStructureItem, PlanStep, LayrConfig, APIKeyMissingError, AIServiceError, AIProvider, AIProviderType } from './interfaces';
-
+import { ProjectPlan, LayrConfig, AIProvider, AIProviderType, FileStructureItem, PlanStep } from './interfaces';
 import { RuleBasedPlanGenerator } from './rules';
 import { getAIProviderFactory } from './providers';
+import { logger } from '../utils/logger';
+import { AIProviderError } from '../utils/errors';
 
 /**
  * Main planner class that orchestrates plan generation
@@ -26,19 +27,19 @@ export class Planner {
     if (provider) {
       this.aiProvider = provider;
       this.isProviderInjected = true;
-      console.log('Planner: Injected AI provider used');
+      logger.info('Planner: Injected AI provider used');
     } else {
       this.initializeAIProvider();
     }
 
-    console.log('Planner: ONLINE ONLY MODE - Offline templates disabled');
+    logger.info('Planner: ONLINE ONLY MODE - Offline templates disabled');
   }
 
   /**
    * Generate a project plan from a natural language prompt - ONLINE ONLY MODE
    */
   async generatePlan(prompt: string): Promise<ProjectPlan> {
-    console.log('Planner.generatePlan: ONLINE ONLY MODE - Starting plan generation');
+    logger.info('Planner.generatePlan: ONLINE ONLY MODE - Starting plan generation');
 
     // Force refresh config to ensure we have the latest API key (skip if provider was injected for testing)
     if (!this.isProviderInjected) {
@@ -54,13 +55,13 @@ export class Planner {
       planType = config.get<string>('planType', 'SaaS');
     } catch (_error) {
       // VS Code API not available (likely in test environment), use defaults
-      console.log('Planner.generatePlan: Using default planSize and planType (test mode)');
+      logger.debug('Planner.generatePlan: Using default planSize and planType (test mode)');
     }
 
-    console.log('Planner.generatePlan: Plan size:', planSize);
-    console.log('Planner.generatePlan: Plan type:', planType);
-    console.log('Planner.generatePlan: AI provider exists:', !!this.aiProvider);
-    console.log('Planner.generatePlan: AI provider type:', this.aiProvider?.type || 'none');
+    logger.debug('Planner.generatePlan: Plan size:', planSize);
+    logger.debug('Planner.generatePlan: Plan type:', planType);
+    logger.debug('Planner.generatePlan: AI provider exists:', !!this.aiProvider);
+    logger.debug('Planner.generatePlan: AI provider type:', this.aiProvider?.type || 'none');
 
     // REQUIRE AI provider - no offline fallback allowed
     if (!this.aiProvider) {
@@ -74,16 +75,18 @@ Please configure your AI provider:
 For help with setup:
 - Documentation: https://github.com/manasdutta04/layr#setup
 - Troubleshooting: https://github.com/manasdutta04/layr#troubleshooting`;
-      console.error('Planner.generatePlan:', errorMsg);
-      try {
-        vscode.window.showErrorMessage(errorMsg);
-      } catch { /* VS Code API not available (test mode) */ }
-      throw new APIKeyMissingError();
+      logger.error('Planner.generatePlan:', errorMsg);
+      vscode.window.showErrorMessage(errorMsg, 'Show Logs').then(selection => {
+        if (selection === 'Show Logs') {
+          logger.show();
+        }
+      });
+      throw new AIProviderError('AI provider not initialized', 'none');
     }
 
     const isAvailable = await this.aiProvider.isAvailable();
-    console.log('Planner.generatePlan: AI provider available:', isAvailable);
-
+    logger.debug('Planner.generatePlan: AI provider available:', isAvailable);
+    
     if (!isAvailable) {
       const errorMsg = `AI provider is currently unavailable.
 
@@ -100,21 +103,23 @@ Next steps:
 If the issue persists:
 - Visit: https://github.com/manasdutta04/layr/issues
 - Check troubleshooting: https://github.com/manasdutta04/layr#troubleshooting`;
-
-      console.error('Planner.generatePlan:', errorMsg);
-      try {
-        vscode.window.showErrorMessage(errorMsg);
-      } catch { /* VS Code API not available (test mode) */ }
-      throw new APIKeyMissingError();
+      
+      logger.error('Planner.generatePlan:', errorMsg);
+      vscode.window.showErrorMessage(errorMsg, 'Show Logs').then(selection => {
+        if (selection === 'Show Logs') {
+          logger.show();
+        }
+      });
+      throw new AIProviderError('AI provider unavailable', this.aiProvider.name);
     }
 
     try {
-      console.log('Planner.generatePlan: Attempting AI plan generation with', this.aiProvider.name);
+      logger.info('Planner.generatePlan: Attempting AI plan generation with', this.aiProvider.name);
       const planMarkdown = await this.aiProvider.generatePlan(prompt, { planSize, planType });
-      console.log('Planner.generatePlan: AI plan generation successful');
-      console.log('Planner.generatePlan: Raw response length:', planMarkdown.length);
-      console.log('Planner.generatePlan: Raw response preview:', planMarkdown.substring(0, 200));
-
+      logger.info('Planner.generatePlan: AI plan generation successful');
+      logger.debug('Planner.generatePlan: Raw response length:', planMarkdown.length);
+      logger.debug('Planner.generatePlan: Raw response preview:', planMarkdown.substring(0, 200));
+      
       // Return the Markdown directly wrapped in a simple ProjectPlan structure
       // The AI already generates perfect Markdown, no need to parse and reformat
       const plan: ProjectPlan = {
@@ -132,13 +137,11 @@ If the issue persists:
       } catch { /* VS Code API not available (test mode) */ }
       return plan;
     } catch (error) {
-      console.error('Planner.generatePlan: AI plan generation failed:', error);
-
+      logger.error('Planner.generatePlan: AI plan generation failed:', error);
+      
       let errorMessage = '';
-
-      if (error instanceof APIKeyMissingError) {
-        errorMessage = error.message;
-      } else if (error instanceof AIServiceError) {
+      
+      if (error instanceof AIProviderError) {
         errorMessage = error.message;
       } else if (error instanceof Error) {
         errorMessage = `Plan generation failed: ${error.message}
@@ -153,10 +156,12 @@ Need help? Visit: https://github.com/manasdutta04/layr/issues`;
       } else {
         errorMessage = `Unexpected error: ${String(error)}. Please try again or report at: https://github.com/manasdutta04/layr/issues`;
       }
-
-      try {
-        vscode.window.showErrorMessage(errorMessage);
-      } catch { /* VS Code API not available (test mode) */ }
+      
+      vscode.window.showErrorMessage(errorMessage, 'Show Logs').then(selection => {
+        if (selection === 'Show Logs') {
+          logger.show();
+        }
+      });
       throw error;
     }
   }
@@ -237,18 +242,18 @@ Need help? Visit: https://github.com/manasdutta04/layr/issues`;
    */
   async refineSection(sectionContent: string, refinementPrompt: string, fullContext: string): Promise<string> {
     if (!this.aiProvider) {
-      throw new APIKeyMissingError();
+      throw new AIProviderError('AI provider not initialized', 'none');
     }
 
     const isAvailable = await this.aiProvider.isAvailable();
     if (!isAvailable) {
-      throw new APIKeyMissingError();
+      throw new AIProviderError('AI provider unavailable', this.aiProvider.name);
     }
 
     try {
       return await this.aiProvider.refineSection(sectionContent, refinementPrompt, fullContext);
     } catch (error) {
-      console.error('Planner.refineSection error:', error);
+      logger.error('Planner.refineSection error:', error);
       throw error;
     }
   }
@@ -293,8 +298,8 @@ Need help? Visit: https://github.com/manasdutta04/layr/issues`;
 
     // Only read from environment variable, not from VS Code settings
     const groqApiKey = process.env.GROQ_API_KEY || '';
-
-    console.log('Layr Config Debug:', {
+    
+    logger.debug('Layr Config Debug:', {
       selectedModel: this.aiModel,
       determinedProvider: aiProvider,
       apiKey: groqApiKey ? '***configured***' : 'using embedded key'
@@ -310,10 +315,10 @@ Need help? Visit: https://github.com/manasdutta04/layr/issues`;
   }
 
   private initializeAIProvider(): void {
-    console.log('Planner.initializeAIProvider: Starting AI provider initialization');
-    console.log('Planner.initializeAIProvider: Selected model:', this.aiModel);
-    console.log('Planner.initializeAIProvider: Using Groq provider (pre-configured)');
-
+    logger.debug('Planner.initializeAIProvider: Starting AI provider initialization');
+    logger.debug('Planner.initializeAIProvider: Selected model:', this.aiModel);
+    logger.debug('Planner.initializeAIProvider: Using Groq provider (pre-configured)');
+    
     try {
       const factory = getAIProviderFactory();
 
@@ -322,16 +327,16 @@ Need help? Visit: https://github.com/manasdutta04/layr/issues`;
         apiKey: this.config.groq?.apiKey || '',
         model: this.aiModel
       };
-
-      console.log('Planner.initializeAIProvider: Provider config:', {
+      
+      logger.debug('Planner.initializeAIProvider: Provider config:', { 
         model: this.aiModel,
         apiKey: providerConfig.apiKey ? '[CONFIGURED]' : '[USING EMBEDDED KEY]'
       });
 
       this.aiProvider = factory.createProvider('groq', providerConfig);
-      console.log('Planner.initializeAIProvider: Groq provider created successfully');
+      logger.info('Planner.initializeAIProvider: Groq provider created successfully');
     } catch (error) {
-      console.log('Planner.initializeAIProvider: Failed to create Groq provider:', error);
+      logger.error('Planner.initializeAIProvider: Failed to create Groq provider:', error);
       this.aiProvider = null;
     }
   }
@@ -342,9 +347,9 @@ Need help? Visit: https://github.com/manasdutta04/layr/issues`;
   }
 
   private parseAIPlan(planText: string): ProjectPlan {
-    console.log('Planner.parseAIPlan: Starting to parse AI response');
-    console.log('Planner.parseAIPlan: Response length:', planText.length);
-
+    logger.debug('Planner.parseAIPlan: Starting to parse AI response');
+    logger.debug('Planner.parseAIPlan: Response length:', planText.length);
+    
     try {
       // Try multiple JSON extraction methods
       let jsonText = '';
@@ -353,7 +358,7 @@ Need help? Visit: https://github.com/manasdutta04/layr/issues`;
       const codeBlockMatch = planText.match(/```json\s*([\s\S]*?)\s*```/);
       if (codeBlockMatch) {
         jsonText = codeBlockMatch[1].trim();
-        console.log('Planner.parseAIPlan: Found JSON in code block');
+        logger.debug('Planner.parseAIPlan: Found JSON in code block');
       } else {
         // Method 2: Look for JSON between ``` and ``` markers (without json specifier)
         const genericCodeBlockMatch = planText.match(/```\s*([\s\S]*?)\s*```/);
@@ -361,7 +366,7 @@ Need help? Visit: https://github.com/manasdutta04/layr/issues`;
           const potentialJson = genericCodeBlockMatch[1].trim();
           if (potentialJson.startsWith('{') && potentialJson.endsWith('}')) {
             jsonText = potentialJson;
-            console.log('Planner.parseAIPlan: Found JSON in generic code block');
+            logger.debug('Planner.parseAIPlan: Found JSON in generic code block');
           }
         }
 
@@ -370,33 +375,33 @@ Need help? Visit: https://github.com/manasdutta04/layr/issues`;
           const jsonMatch = planText.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
             jsonText = jsonMatch[0];
-            console.log('Planner.parseAIPlan: Found JSON object');
+            logger.debug('Planner.parseAIPlan: Found JSON object');
           } else {
             // Method 4: Try to parse the entire response as JSON
             try {
               JSON.parse(planText.trim());
               jsonText = planText.trim();
-              console.log('Planner.parseAIPlan: Entire response is valid JSON');
+              logger.debug('Planner.parseAIPlan: Entire response is valid JSON');
             } catch {
-              console.log('Planner.parseAIPlan: No valid JSON found in response');
-              console.log('Planner.parseAIPlan: Full response for debugging:', planText);
-              throw new Error('Invalid response format from AI service - no JSON found');
+              logger.warn('Planner.parseAIPlan: No valid JSON found in response');
+              logger.debug('Planner.parseAIPlan: Full response for debugging:', planText);
+              throw new AIProviderError('Invalid response format from AI service - no JSON found', this.aiProvider?.name || 'unknown');
             }
           }
         }
       }
 
-      console.log('Planner.parseAIPlan: Extracted JSON preview:', jsonText.substring(0, 200) + (jsonText.length > 200 ? '...' : ''));
+      logger.debug('Planner.parseAIPlan: Extracted JSON preview:', jsonText.substring(0, 200) + (jsonText.length > 200 ? '...' : ''));
 
       // Try to parse JSON with error handling and repair
       let planData;
       try {
         planData = JSON.parse(jsonText);
-        console.log('Planner.parseAIPlan: Successfully parsed JSON');
+        logger.debug('Planner.parseAIPlan: Successfully parsed JSON');
       } catch (parseError) {
-        console.log('Planner.parseAIPlan: JSON parse error:', parseError);
-        console.log('Planner.parseAIPlan: Attempting to repair JSON...');
-
+        logger.warn('Planner.parseAIPlan: JSON parse error:', parseError);
+        logger.info('Planner.parseAIPlan: Attempting to repair JSON...');
+        
         // Try to repair common JSON issues
         let repairedJson = jsonText;
 
@@ -413,11 +418,11 @@ Need help? Visit: https://github.com/manasdutta04/layr/issues`;
         // Try parsing the repaired JSON
         try {
           planData = JSON.parse(repairedJson);
-          console.log('Planner.parseAIPlan: Successfully repaired and parsed JSON');
+          logger.info('Planner.parseAIPlan: Successfully repaired and parsed JSON');
         } catch (repairError) {
-          console.log('Planner.parseAIPlan: Failed to repair JSON:', repairError);
-          console.log('Planner.parseAIPlan: Original JSON for debugging:', jsonText);
-          throw new Error('Failed to parse AI response as JSON');
+          logger.error('Planner.parseAIPlan: Failed to repair JSON:', repairError);
+          logger.debug('Planner.parseAIPlan: Original JSON for debugging:', jsonText);
+          throw new AIProviderError('Failed to parse AI response as JSON', this.aiProvider?.name || 'unknown');
         }
       }
 
@@ -432,10 +437,10 @@ Need help? Visit: https://github.com/manasdutta04/layr/issues`;
         generatedBy: 'ai'
       };
 
-      console.log('Planner.parseAIPlan: Successfully created ProjectPlan object');
+      logger.info('Planner.parseAIPlan: Successfully created ProjectPlan object');
       return plan;
     } catch (error) {
-      console.error('Planner.parseAIPlan: Failed to parse AI plan:', error);
+      logger.error('Planner.parseAIPlan: Failed to parse AI plan:', error);
       // Fallback to a basic plan structure
       return {
         title: 'AI Generated Plan',

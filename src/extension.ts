@@ -11,8 +11,7 @@ import { estimateCost } from './cost-estimation/costEstimator';
 import { VersionManager } from './version-control/VersionManager';
 import { PlanDiffProvider } from './version-control/diffProvider';
 import { HistoryView } from './version-control/HistoryView';
-// Import the new Sanitization Service
-import { SanitizationService } from './services/sanitizationService';
+import { logger } from './utils/logger';
 
 /**
  * This method is called when the extension is activated
@@ -22,29 +21,29 @@ export function activate(context: vscode.ExtensionContext) {
   const templateManager = new TemplateManager(context);
   const templateBrowser = new TemplateBrowser(context, templateManager);
 
-  console.log('🚀 LAYR EXTENSION ACTIVATE FUNCTION CALLED! 🚀');
-  console.log('Layr Extension: ONLINE ONLY MODE ACTIVATED - Build ' + new Date().toISOString());
-  console.log('Layr extension is now active! 🚀');
+  logger.info('🚀 LAYR EXTENSION ACTIVATE FUNCTION CALLED! 🚀');
+  logger.info('Layr Extension: ONLINE ONLY MODE ACTIVATED - Build ' + new Date().toISOString());
+  logger.info('Layr extension is now active! 🚀');
 
   // Load environment variables from .env file in extension directory
   const extensionRoot = context.extensionPath;
   const envPath = path.join(extensionRoot, '.env');
-  console.log('Layr: Extension root:', extensionRoot);
-  console.log('Layr: Attempting to load .env from:', envPath);
-  console.log('Layr: .env file exists:', fs.existsSync(envPath));
+  logger.debug('Layr: Extension root:', extensionRoot);
+  logger.debug('Layr: Attempting to load .env from:', envPath);
+  logger.debug('Layr: .env file exists:', fs.existsSync(envPath));
 
   if (fs.existsSync(envPath)) {
     try {
       // Load .env from extension directory
       const result = dotenv.config({ path: envPath });
-      console.log('Layr: dotenv.config() result:', result.error ? 'ERROR: ' + result.error : 'SUCCESS');
-      console.log('Layr: GROQ_API_KEY after dotenv:', process.env.GROQ_API_KEY ? '***configured***' : 'not found');
+      logger.debug('Layr: dotenv.config() result:', result.error ? 'ERROR: ' + result.error : 'SUCCESS');
+      logger.debug('Layr: GROQ_API_KEY after dotenv:', process.env.GROQ_API_KEY ? '***configured***' : 'not found');
 
       // Manual fallback - read file directly
       if (!process.env.GROQ_API_KEY) {
-        console.log('Layr: dotenv failed, trying manual file read');
+        logger.warn('Layr: dotenv failed, trying manual file read');
         const envContent = fs.readFileSync(envPath, 'utf8');
-        console.log('Layr: .env file content length:', envContent.length);
+        logger.debug('Layr: .env file content length:', envContent.length);
 
         const lines = envContent.split('\n');
         for (const line of lines) {
@@ -52,23 +51,23 @@ export function activate(context: vscode.ExtensionContext) {
           if (trimmed.startsWith('GROQ_API_KEY=')) {
             const apiKey = trimmed.substring('GROQ_API_KEY='.length).trim();
             process.env.GROQ_API_KEY = apiKey;
-            console.log('Layr: Manually set GROQ_API_KEY from file, length:', apiKey?.length);
+            logger.info('Layr: Manually set GROQ_API_KEY from file, length:', apiKey?.length);
             break;
           }
         }
       }
     } catch (error) {
-      console.log('Layr: Error loading .env file:', error instanceof Error ? error.message : String(error));
-      console.log('Layr: Tip: Ensure .env file exists in extension directory. See: https://github.com/manasdutta04/layr#setup');
+      logger.error('Layr: Error loading .env file:', error);
+      logger.info('Layr: Tip: Ensure .env file exists in extension directory. See: https://github.com/manasdutta04/layr#setup');
     }
 
-    console.log('Layr: Final GROQ_API_KEY status:', process.env.GROQ_API_KEY ? '***configured*** (length: ' + process.env.GROQ_API_KEY.length + ')' : 'not found');
+    logger.info('Layr: Final GROQ_API_KEY status:', process.env.GROQ_API_KEY ? '***configured***' : 'not found');
   } else {
-    console.log('Layr: No .env file found in extension directory. API key should be set via VS Code settings. Guide: https://github.com/manasdutta04/layr#configuration');
+    logger.info('Layr: No .env file found in extension directory. API key should be set via VS Code settings. Guide: https://github.com/manasdutta04/layr#configuration');
   }
 
   // Refresh planner configuration after .env is loaded
-  console.log('Layr: Refreshing planner configuration after .env load');
+  logger.info('Layr: Refreshing planner configuration after .env load');
   planner.refreshConfig();
 
   // Register "Browse Templates" Command
@@ -145,29 +144,6 @@ export function activate(context: vscode.ExtensionContext) {
       return; // User cancelled
     }
 
-    // --- SECURITY SANITIZATION START ---
-    // [FIXED] Updated to use the same Proceed/Cancel logic as createPlan for UX consistency
-    const { sanitizedText: safeRefinement, wasRedacted } = SanitizationService.sanitize(refinementPrompt);
-    
-    const finalRefinement = safeRefinement.trim();
-
-    if (wasRedacted) {
-         const proceed = await vscode.window.showWarningMessage(
-             'Layr Security: Sensitive info (emails/IPs/keys) was detected in your refinement prompt and has been redacted.',
-             'View Redacted Prompt',
-             'Proceed',
-             'Cancel'
-         );
-
-         if (proceed === 'Cancel') {
-            return;
-        }
-         if (proceed === 'View Redacted Prompt') {
-            await vscode.window.showInformationMessage(`Sending: "${finalRefinement}"`);
-         }
-    }
-    // --- SECURITY SANITIZATION END ---
-
     // Show progress
     await vscode.window.withProgress({
       location: vscode.ProgressLocation.Notification,
@@ -176,8 +152,7 @@ export function activate(context: vscode.ExtensionContext) {
     }, async (progress) => {
       progress.report({ message: 'AI is thinking...' });
 
-      // Use finalRefinement instead of raw refinementPrompt
-      const refinedContent = await PlanRefiner.refine(document, section, finalRefinement);
+      const refinedContent = await PlanRefiner.refine(document, section, refinementPrompt);
 
       if (refinedContent) {
         await PlanRefiner.showDiffAndApply(document, section, refinedContent);
@@ -208,29 +183,6 @@ export function activate(context: vscode.ExtensionContext) {
         return; // User cancelled
       }
 
-      // --- SECURITY SANITIZATION START ---
-      const { sanitizedText, wasRedacted } = SanitizationService.sanitize(prompt);
-      
-      const finalPrompt = sanitizedText.trim();
-
-      if (wasRedacted) {
-          const proceed = await vscode.window.showWarningMessage(
-              'Layr Security: We detected sensitive info (emails/IPs/keys) in your prompt. It has been redacted for your safety.',
-              'View Redacted Prompt',
-              'Proceed',
-              'Cancel'
-          );
-
-          if (proceed === 'Cancel') {
-            return;
-        }
-          if (proceed === 'View Redacted Prompt') {
-             // Show them what we are sending but continue
-             await vscode.window.showInformationMessage(`Sending: "${finalPrompt}"`);
-          }
-      }
-      // --- SECURITY SANITIZATION END ---
-
       // Show progress indicator with percentage tracking
       await vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
@@ -253,9 +205,9 @@ export function activate(context: vscode.ExtensionContext) {
           // Stage 1: Analyze request
           updateProgress(15, 'Analyzing your request...');
 
-          // Generate the plan using the sanitized prompt
+          // Generate the plan
           updateProgress(35, 'Connecting to AI provider...');
-          const plan = await planner.generatePlan(finalPrompt);
+          const plan = await planner.generatePlan(prompt.trim());
           updateProgress(60, 'Formatting plan as Markdown...');
 
           // Convert plan to Markdown
@@ -284,7 +236,7 @@ export function activate(context: vscode.ExtensionContext) {
           // Save the initial version
           await versionManager.saveVersion(plan, {
             description: 'Initial Plan Generation',
-            prompt: finalPrompt, // Store the sanitized prompt in history too
+            prompt: prompt.trim(),
             model: modelName,
             versionLabel: 'v1'
           });
@@ -292,26 +244,26 @@ export function activate(context: vscode.ExtensionContext) {
           updateProgress(100, 'Plan generated successfully! ✨');
 
         } catch (error) {
+          logger.error('Plan generation error:', error);
           const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-          const fullError = `Failed to generate plan:
-
-${errorMessage}
-
-Documentation: https://github.com/manasdutta04/layr#troubleshooting`;
-          vscode.window.showErrorMessage(fullError);
-          console.error('Plan generation error:', error);
+          const action = 'Show Logs';
+          vscode.window.showErrorMessage(`Failed to generate plan: ${errorMessage}`, action).then(selected => {
+            if (selected === action) {
+              logger.show();
+            }
+          });
         }
       });
 
     } catch (error) {
+      logger.error('Create plan command error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      const fullError = `Error creating plan:
-
-${errorMessage}
-
-Need help? Visit: https://github.com/manasdutta04/layr#troubleshooting`;
-      vscode.window.showErrorMessage(fullError);
-      console.error('Create plan command error:', error);
+      const action = 'Show Logs';
+      vscode.window.showErrorMessage(`Error creating plan: ${errorMessage}`, action).then(selected => {
+        if (selected === action) {
+          logger.show();
+        }
+      });
     }
   });
 
@@ -412,8 +364,8 @@ Need help? Visit: https://github.com/manasdutta04/layr#troubleshooting`;
                 vscode.commands.executeCommand('workbench.panel.chat.view.copilot.focus');
               }
             });
-          } catch (_e) {
-            console.log('Failed to open Copilot Chat:', _e);
+          } catch (e) {
+            logger.error('Failed to open Copilot Chat:', e);
           }
         }
 
@@ -428,8 +380,8 @@ Need help? Visit: https://github.com/manasdutta04/layr#troubleshooting`;
             vscode.window.showInformationMessage(
               'Plan sent to Cursor AI! Check the chat panel to start implementation. Docs: https://github.com/manasdutta04/layr#implementation'
             );
-          } catch (_e) {
-            console.log('Failed to open Cursor Chat:', _e);
+          } catch (e) {
+            logger.error('Failed to open Cursor Chat:', e);
           }
         }
 
@@ -444,8 +396,8 @@ Need help? Visit: https://github.com/manasdutta04/layr#troubleshooting`;
             vscode.window.showInformationMessage(
               'Plan sent to Windsurf AI! Check the chat panel to start implementation.'
             );
-          } catch (_e) {
-            console.log('Failed to open Windsurf Chat:', _e);
+          } catch (e) {
+            logger.error('Failed to open Windsurf Chat:', e);
           }
         }
 
@@ -460,8 +412,8 @@ Need help? Visit: https://github.com/manasdutta04/layr#troubleshooting`;
             vscode.window.showInformationMessage(
               'Plan sent to Antigravity AI! Check the chat panel to start implementation.'
             );
-          } catch (_e) {
-            console.log('Failed to open Antigravity Chat:', _e);
+          } catch (e) {
+            logger.error('Failed to open Antigravity Chat:', e);
           }
         }
 
@@ -513,7 +465,7 @@ Need help? Visit: https://github.com/manasdutta04/layr#troubleshooting`;
         }
 
       } catch (error) {
-        console.error('Error executing plan with AI:', error);
+        logger.error('Error executing plan with AI:', error);
 
         // Fallback: Copy to clipboard
         await vscode.env.clipboard.writeText(content);
@@ -529,14 +481,14 @@ Need help? Visit: https://github.com/manasdutta04/layr#troubleshooting`;
       }
 
     } catch (error) {
+      logger.error('Execute plan command error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      const fullError = `Error executing plan:
-
-${errorMessage}
-
-Troubleshooting: https://github.com/manasdutta04/layr#troubleshooting`;
-      vscode.window.showErrorMessage(fullError);
-      console.error('Execute plan command error:', error);
+      const action = 'Show Logs';
+      vscode.window.showErrorMessage(`Error executing plan: ${errorMessage}`, action).then(selected => {
+        if (selected === action) {
+          logger.show();
+        }
+      });
     }
   });
 
@@ -738,14 +690,14 @@ Troubleshooting: https://github.com/manasdutta04/layr#troubleshooting`;
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
           vscode.window.showErrorMessage(`Failed to export plan: ${errorMessage}`);
-          console.error('Export error:', error);
+          logger.error('Export error:', error);
         }
       });
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       vscode.window.showErrorMessage(`Error exporting plan: ${errorMessage}`);
-      console.error('Export plan command error:', error);
+      logger.error('Export plan command error:', error);
     }
   });
 
@@ -783,6 +735,13 @@ Troubleshooting: https://github.com/manasdutta04/layr#troubleshooting`;
   });
 
   // Add commands to subscriptions for proper cleanup
+  // Register "Copy Logs" Command
+  const copyLogsCommand = vscode.commands.registerCommand('layr.copyLogs', async () => {
+    const logs = logger.getLogs();
+    await vscode.env.clipboard.writeText(logs);
+    vscode.window.showInformationMessage('Layr logs copied to clipboard!');
+  });
+
   context.subscriptions.push(
     createPlanCommand,
     executePlanCommand,
@@ -792,6 +751,7 @@ Troubleshooting: https://github.com/manasdutta04/layr#troubleshooting`;
     configChangeListener,
     browseTemplatesCommand,
     saveAsTemplateCommand,
+    copyLogsCommand,
     vscode.commands.registerCommand('layr.applyRefinement', async (uri: vscode.Uri) => {
       // If uri is not provided, try to get it from the active editor
       const targetUri = uri || vscode.window.activeTextEditor?.document.uri;
@@ -948,5 +908,5 @@ Happy coding! 🚀
  * This method is called when the extension is deactivated
  */
 export function deactivate() {
-  console.log('Layr extension deactivated');
+  logger.info('Layr extension deactivated');
 }

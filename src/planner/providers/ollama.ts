@@ -1,5 +1,7 @@
 import fetch from 'node-fetch';
-import { AIProvider, AIProviderType, AIServiceError } from '../interfaces';
+import { AIProvider, AIProviderType } from '../interfaces';
+import { logger } from '../../utils/logger';
+import { AIProviderError } from '../../utils/errors';
 
 export class OllamaProvider implements AIProvider {
   public readonly name = 'Ollama';
@@ -15,7 +17,7 @@ export class OllamaProvider implements AIProvider {
     this.baseUrl = (baseUrl || 'http://localhost:11434').replace(/\/$/, '');
     this.modelName = modelName || 'llama3';
     this.fetcher = fetcher || fetch;
-    console.log(`OllamaProvider: Initialized with ${this.baseUrl} using model ${this.modelName}`);
+    logger.info(`OllamaProvider: Initialized with ${this.baseUrl} using model ${this.modelName}`);
   }
 
   async isAvailable(): Promise<boolean> {
@@ -191,22 +193,25 @@ CRITICAL: Return ONLY valid JSON. Do not wrap in markdown code blocks. Do not in
       });
 
       if (!response.ok) {
-        throw new Error(`Ollama API Error: ${response.statusText}`);
+        throw new AIProviderError(`Ollama API Error: ${response.statusText}`, this.name);
       }
 
       const data = await response.json() as { response: string };
       const jsonText = data.response;
 
-      console.log('OllamaProvider: Raw response length:', jsonText.length);
+      logger.debug('OllamaProvider: Raw response length:', jsonText.length);
 
       // Return the raw JSON string as requested by the interface
       // The PlanGenerator logic will handle parsing this later.
       return jsonText;
 
     } catch (error) {
-      throw new AIServiceError(
+      if (error instanceof AIProviderError) {
+        throw error;
+      }
+      throw new AIProviderError(
         error instanceof Error ? error.message : 'Unknown error generating plan with Ollama',
-        error instanceof Error ? error : undefined
+        this.name
       );
     }
   }
@@ -245,15 +250,18 @@ CRITICAL INSTRUCTIONS:
       });
 
       if (!response.ok) {
-        throw new Error(`Ollama API Error: ${response.statusText}`);
+        throw new AIProviderError(`Ollama API Error: ${response.statusText}`, this.name);
       }
 
       const data = await response.json() as { response: string };
       return data.response;
 
     } catch (error) {
-      console.error('OllamaProvider.refineSection error:', error);
-      throw new AIServiceError(error instanceof Error ? error.message : String(error));
+      logger.error('OllamaProvider.refineSection error:', error);
+      if (error instanceof AIProviderError) {
+        throw error;
+      }
+      throw new AIProviderError(error instanceof Error ? error.message : String(error), this.name);
     }
   }
 }
